@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valorant Store Lite</title>
+	<link rel="icon" href="/icons/vsc-logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&display=swap');
+        body { background-color: #0f1923; color: white; font-family: sans-serif; }
+        .font-valorant { font-family: 'Oswald', sans-serif; }
+        .timer-bg { background: rgba(255, 70, 85, 0.1); border: 1px solid rgba(255, 70, 85, 0.3); }
+        .custom-scrollbar::-webkit-scrollbar { height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #ff4655; border-radius: 10px; }
+        .title-display { background: radial-gradient(circle, rgba(0,199,183,0.15) 0%, rgba(0,0,0,0) 70%); border: 1px solid rgba(0,199,183,0.2); }
+    </style>
+</head>
+<body class="p-4 md:p-8 max-w-7xl mx-auto">
+
+    <header class="mb-10 text-center">
+        <h1 class="text-5xl font-black text-[#ff4655] uppercase italic tracking-tighter font-valorant">
+            <a href="/" class="inline-block hover:opacity-80 transition-opacity">
+                Valorant Store <span class="text-white">Lite</span>
+            </a>
+        </h1>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <!-- ACCOUNTS SIDEBAR -->
+        <div class="col-span-1 space-y-6">
+            <div class="bg-[#1f2326] p-5 rounded border border-gray-700 shadow-xl">
+                <h2 class="text-xl font-bold mb-5 border-l-4 border-[#ff4655] pl-3 uppercase">Accounts</h2>
+                <div class="space-y-2 mb-8">
+                    <% if(accounts.length === 0) { %>
+                        <p class="text-xs text-gray-500 italic">No accounts added yet.</p>
+                    <% } %>
+                    <% accounts.forEach(function(acc) { %>
+                        <div class="flex gap-2 group">
+                            <form action="/check-store" method="POST" class="flex-1">
+                                <input type="hidden" name="cookie" value="<%= acc.cookie %>">
+                                <input type="hidden" name="accName" value="<%= acc.name %>">
+                                <button type="submit" class="w-full text-left p-3 bg-gray-800 hover:bg-[#ff4655] rounded transition font-bold text-sm">
+                                    ▶ <%= acc.name %>
+                                </button>
+                            </form>
+                            <form action="/delete-account" method="POST">
+                                <input type="hidden" name="accName" value="<%= acc.name %>">
+                                <button type="submit" onclick="return confirm('Are you sure you want to delete this account?')" class="h-full px-3 bg-red-900/30 hover:bg-red-600 rounded text-white font-bold transition">✕</button>
+                            </form>
+                        </div>
+                    <% }); %>
+                </div>
+                <form action="/add-account" method="POST" class="space-y-3">
+                    <input type="text" name="accName" placeholder="Account Name" class="w-full p-3 bg-gray-900 border border-gray-600 rounded text-sm text-white focus:border-green-500 outline-none" required>
+                    <textarea name="cookie" placeholder="Paste your Cookie here..." class="w-full p-3 bg-gray-900 border border-gray-600 rounded text-xs text-gray-400 h-24 focus:border-green-500 outline-none" required></textarea>
+					<div class="text-right mt-[-8px]">
+						<button type="button" onclick="openGuideModal()" class="text-[11px] text-gray-400 hover:text-[#ff4655] underline transition italic">How to get cookie?</button>
+					</div>
+					<button type="submit" class="w-full p-3 bg-green-600 hover:bg-green-500 rounded font-bold transition uppercase tracking-widest text-sm">Save Account</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- STORE CONTENT -->
+        <div class="col-span-3 bg-[#1f2326]/50 p-4 md:p-8 rounded border border-gray-700 min-h-[600px]">
+            <!-- ERROR DISPLAY -->
+            <% if(error) { %>
+                <div class="mb-6 bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded relative" role="alert">
+                    <strong class="font-bold">Error loading <%= currentAcc %>!</strong>
+                    <span class="block sm:inline"><%= error %></span>
+                </div>
+            <% } %>
+
+            <% if(!storeData) { %>
+                <div class="flex items-center justify-center h-full text-gray-500 italic py-20 uppercase font-valorant">Select an account from the left to view the store</div>
+            <% } else { %>
+                
+                <!-- STORE HEADER -->
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 border-b border-gray-700 pb-6">
+                    <h2 class="text-4xl font-black uppercase font-valorant italic">Shop: <span class="text-[#ff4655]"><%= storeData.name %></span></h2>
+                    <div class="mt-4 md:mt-0 text-right">
+                        <p class="text-gray-500 text-[10px] uppercase mb-1">Refreshes in</p>
+                        <div class="timer-bg px-5 py-1 rounded text-xl font-black text-[#ff4655] font-mono" data-expire="<%= storeData.dailyExpires %>">00:00:00</div>
+                    </div>
+                </div>
+
+                <!-- ITEM CARD COMPONENT -->
+                <% 
+                const renderItemCard = (item, isBundleSub = false, isNM = false) => { 
+                    const labelColor = item.type === 'Skin' ? 'bg-blue-600' : (item.type === 'Title' ? 'bg-orange-600' : (item.type === 'Spray' ? 'bg-purple-600' : 'bg-teal-600'));
+                %>
+                    <div class="<%= isBundleSub ? 'flex-shrink-0 w-36 md:w-44' : 'w-full' %> bg-gray-800/40 rounded border border-gray-700 p-3 flex flex-col relative group transition-all duration-300 hover:border-[#ff4655]">
+                        <div class="absolute top-2 left-2 z-20 px-2 py-0.5 <%= labelColor %> text-[8px] font-black uppercase rounded shadow-md"><%= item.type %></div>
+
+                        <% if(item.video || item.animation) { %>
+                            <button onclick="openModal('<%= item.video ? 'video' : 'image' %>', '<%= item.video || item.animation %>', '<%= item.name.replace(/'/g, "\\'") %>')" 
+                                class="absolute top-2 right-2 bg-blue-500 hover:bg-blue-400 text-white p-1.5 rounded-full z-30 transition transform hover:scale-110 shadow-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24"><path d="M3 22v-20l18 10-18 10z"/></svg>
+                            </button>
+                        <% } %>
+
+                        <div class="<%= isBundleSub ? 'h-24' : 'h-32' %> w-full flex items-center justify-center mb-3 relative cursor-pointer" onclick="openModal('image', '<%= item.fullImage || item.image %>', '<%= item.name.replace(/'/g, "\\'") %>')">
+                            <% if(item.type === 'Title') { %>
+                                <div class="title-display w-full h-full flex items-center justify-center p-2 rounded">
+                                    <span class="font-black text-cyan-400 uppercase italic tracking-tighter text-center leading-none <%= isBundleSub ? 'text-[9px]' : 'text-sm' %>"><%= item.name %></span>
+                                </div>
+                            <% } else { %>
+                                <img src="<%= item.image %>" class="max-h-[90%] max-w-[90%] object-contain transition-transform duration-500 group-hover:scale-110" alt="<%= item.name %>">
+                            <% } %>
+                        </div>
+
+                        <div class="mt-auto pt-2 border-t border-gray-700/50">
+                            <h4 class="font-bold text-[10px] truncate uppercase text-gray-300 mb-1" title="<%= item.name %>"><%= item.name %></h4>
+                            <div class="flex items-center justify-between">
+                                <% if(isNM) { %>
+                                    <div class="text-left">
+                                        <p class="text-gray-500 line-through text-[9px] font-mono"><%= item.basePrice.toLocaleString() %></p>
+										<div class="flex items-center gap-1">
+											<img src="/icons/Valorant_Points.webp" class="h-3 w-3" alt="VP">
+											<p class="text-pink-400 font-mono text-xs font-black"><%= item.discountPrice.toLocaleString() %></p>
+										</div>
+                                    </div>
+                                    <div class="bg-pink-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded">-<%= item.discountPercent %>%</div>
+                                <% } else if(item.cost) { %>
+                                    <div class="flex items-center gap-1">
+                                        <img src="<%= item.isAccessory ? '/icons/Kingdom_Credits.webp' : '/icons/Valorant_Points.webp' %>" class="h-3 w-3" alt="Currency">
+                                        <p class="<%= item.isAccessory ? 'text-teal-400' : 'text-yellow-400' %> font-mono text-xs font-black"><%= item.cost.toLocaleString() %></p>
+                                    </div>
+                                <% } %>
+                            </div>
+                        </div>
+                    </div>
+                <% } %>
+
+                <!-- BUNDLES SECTION -->
+                <% if(storeData.bundles && storeData.bundles.length > 0) { %>
+                    <section class="mb-12">
+                        <h3 class="text-2xl font-black mb-6 text-yellow-500 uppercase italic tracking-widest border-l-4 border-yellow-500 pl-4 font-valorant">Featured Bundles</h3>
+                        <% storeData.bundles.forEach(bundle => { %>
+                            <div class="bg-black/30 rounded-xl border border-yellow-500/20 overflow-hidden mb-8">
+                                <div class="relative h-56 md:h-72 group">
+                                    <img src="<%= bundle.image %>" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-80" alt="<%= bundle.name %>">
+                                    <div class="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black flex justify-between items-end">
+                                        <div>
+                                            <h4 class="text-4xl font-black uppercase italic font-valorant"><%= bundle.name %></h4>
+                                            <div class="timer-bg inline-block px-3 py-0.5 rounded text-[10px] font-mono text-yellow-500 mt-2" data-expire="<%= bundle.expires %>">00:00:00</div>
+                                        </div>
+                                        <div class="bg-yellow-500 text-black px-4 py-2 rounded-sm font-black text-xl italic font-valorant shadow-xl flex items-center gap-2">
+											<span><%= bundle.cost.toLocaleString() %></span>
+											<img src="/icons/Valorant_Points.webp" class="h-5 w-5 brightness-0" alt="VP">
+										</div>
+                                    </div>
+                                </div>
+                                <div class="p-5 flex gap-4 overflow-x-auto custom-scrollbar pb-6">
+                                    <% bundle.items.forEach(sub => { renderItemCard(sub, true) }) %>
+                                </div>
+                            </div>
+                        <% }) %>
+                    </section>
+                <% } %>
+
+                <!-- DAILY STORE SECTION -->
+                <% if(storeData.daily && storeData.daily.length > 0) { %>
+                    <section class="mb-12">
+                        <div class="flex justify-between items-center mb-6 border-l-4 border-[#ff4655] pl-4">
+                            <h3 class="text-2xl font-black text-gray-200 uppercase italic tracking-widest font-valorant">Daily Store</h3>
+                            <div class="text-white-400/70 font-mono text-sm" data-expire="<%= storeData.dailyExpires %>">00:00:00</div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+                            <% storeData.daily.forEach(item => { renderItemCard(item) }); %>
+                        </div>
+                    </section>
+                <% } %>
+
+                <!-- NIGHT MARKET SECTION -->
+                <% if(storeData.nightMarket && storeData.nightMarket.length > 0) { %>
+                    <section class="mb-12 bg-purple-900/10 p-6 rounded-xl border border-purple-500/30">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-2xl font-black text-purple-400 uppercase italic tracking-widest font-valorant">Night Market</h3>
+                            <div class="text-purple-400/70 font-mono text-sm" data-expire="<%= storeData.nmExpires %>">00:00:00</div>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-5">
+                            <% storeData.nightMarket.forEach(item => { renderItemCard(item, false, true) }); %>
+                        </div>
+                    </section>
+                <% } %>
+
+                <!-- ACCESSORY STORE SECTION -->
+                <% if(storeData.accessory && storeData.accessory.length > 0) { %>
+                    <section class="mb-8">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-2xl font-black text-teal-400 uppercase italic tracking-widest border-l-4 border-teal-500 pl-4 font-valorant">Accessory Store</h3>
+                            <div class="text-teal-500/70 font-mono text-sm" data-expire="<%= storeData.accExpires %>">00:00:00</div>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+                            <% storeData.accessory.forEach(item => { renderItemCard(item) }); %>
+                        </div>
+                    </section>
+                <% } %>
+
+            <% } %>
+        </div>
+    </div>
+	<!-- GUIDE MODAL -->
+    <div id="guideModal" class="fixed inset-0 bg-black/90 z-[110] hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 opacity-0">
+        <div id="guideModalContent" class="bg-[#1f2326] border border-gray-700 rounded-xl p-6 md:p-8 max-w-2xl w-full relative shadow-2xl transform scale-95 transition-transform duration-300">
+            <button onclick="closeGuideModal()" class="absolute top-4 right-4 text-gray-400 hover:text-[#ff4655] font-black text-xl transition">✕</button>
+            
+            <h3 class="text-3xl font-black mb-6 text-[#ff4655] uppercase italic font-valorant border-b border-gray-700 pb-4">How to get Riot Cookie 🍪</h3>
+            
+            <div class="space-y-4 text-sm text-gray-300">
+                <p>We provide a custom Chrome Extension to grab your cookie safely. Follow these steps:</p>
+                
+                <ol class="list-decimal list-inside space-y-3 bg-gray-900/50 p-5 rounded border border-gray-800">
+                    <li>Open your Chromium-based browser (Chrome, Edge, Brave).</li>
+                    <li>Go to <code class="bg-black px-1.5 py-0.5 rounded text-[#ff4655] font-mono border border-gray-700">chrome://extensions/</code></li>
+                    <li>Turn on <strong class="text-white">Developer mode</strong> (top right corner).</li>
+                    <li>Click <strong class="text-white">Load unpacked</strong> and select the folder <code class="bg-black px-1.5 py-0.5 rounded text-[#ff4655] font-mono border border-gray-700">riot-cookie-grabber</code> containing the <strong>Riot Cookie Grabber</strong> extension.</li>
+                    <li>Go to <a href="https://playvalorant.com/" target="_blank" class="text-blue-400 hover:underline font-bold">https://playvalorant.com/</a> and log in to your account.</li>
+                    <li>Click the extension icon in your browser toolbar and click <strong class="text-white">Get Cookie String</strong>.</li>
+                    <li>Come back here, paste it and Save Account!</li>
+                </ol>
+
+                <div class="mt-6 p-4 border-l-4 border-yellow-500 bg-yellow-500/10 rounded-r">
+                    <strong class="text-yellow-500 uppercase font-bold text-xs">Security Note:</strong> 
+                    <p class="text-xs mt-1 text-yellow-500/80">Your cookie is only stored locally on your PC. Never share your cookie string with anyone else!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- MEDIA MODAL -->
+    <div id="mediaModal" class="fixed inset-0 bg-black/95 z-[100] hidden flex items-center justify-center p-4 backdrop-blur-md">
+        <button onclick="closeModal()" class="absolute top-6 right-6 bg-[#ff4655] text-white rounded-full w-12 h-12 font-black text-2xl shadow-2xl flex items-center justify-center transition hover:scale-110">✕</button>
+        <div class="w-full max-w-5xl text-center">
+            <h3 id="modalTitle" class="text-3xl md:text-5xl font-black mb-8 uppercase italic font-valorant"></h3>
+            <div class="relative inline-block w-full bg-black/40 rounded-2xl p-4 border border-white/5">
+                <img id="modalImg" src="" class="max-h-[70vh] mx-auto hidden object-contain">
+                <video id="modalVid" src="" controls class="max-h-[70vh] w-full hidden rounded-lg"></video>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateTimers() {
+            document.querySelectorAll('[data-expire]').forEach(el => {
+                const expire = parseInt(el.dataset.expire);
+                if (isNaN(expire)) return;
+                
+                const now = Date.now();
+                const diff = expire - now;
+                if (diff <= 0) { el.innerText = "REFRESHING..."; return; }
+                
+                const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toString().padStart(2, '0');
+                const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
+                const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+                
+                el.innerText = (d > 0 ? d + "D " : "") + `${h}:${m}:${s}`;
+            });
+        }
+        setInterval(updateTimers, 1000);
+        updateTimers();
+
+        const modal = document.getElementById('mediaModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalImg = document.getElementById('modalImg');
+        const modalVid = document.getElementById('modalVid');
+
+        function openModal(type, url, title) {
+            if(!url || url.includes("null")) return;
+            modalTitle.innerText = title;
+            modal.classList.remove('hidden');
+            if (type === 'video') {
+                modalImg.classList.add('hidden');
+                modalVid.classList.remove('hidden');
+                modalVid.src = url;
+                modalVid.play();
+            } else {
+                modalVid.classList.add('hidden');
+                modalVid.pause();
+                modalVid.src = "";
+                modalImg.classList.remove('hidden');
+                modalImg.src = url;
+            }
+        }
+        
+        function closeModal() {
+            modal.classList.add('hidden');
+            modalVid.pause();
+            modalVid.src = "";
+            modalImg.src = "";
+        }
+        
+        modal.onclick = (e) => { if(e.target === modal) closeModal(); }
+        document.addEventListener('keydown', (e) => { if (e.key === "Escape") closeModal(); });
+		
+		// --- GUIDE MODAL LOGIC ---
+        const guideModal = document.getElementById('guideModal');
+        const guideModalContent = document.getElementById('guideModalContent');
+
+        function openGuideModal() {
+            guideModal.classList.remove('hidden');
+            setTimeout(() => {
+                guideModal.classList.remove('opacity-0');
+                guideModalContent.classList.remove('scale-95');
+                guideModalContent.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeGuideModal() {
+            guideModal.classList.add('opacity-0');
+            guideModalContent.classList.remove('scale-100');
+            guideModalContent.classList.add('scale-95');
+            setTimeout(() => {
+                guideModal.classList.add('hidden');
+            }, 300);
+        }
+
+        guideModal.onclick = (e) => { if(e.target === guideModal) closeGuideModal(); }
+        document.addEventListener('keydown', (e) => { if (e.key === "Escape" && !guideModal.classList.contains('hidden')) closeGuideModal(); });
+    </script>
+</body>
+</html>

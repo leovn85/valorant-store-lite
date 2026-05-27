@@ -1,0 +1,15 @@
+# Node modules
+node_modules/
+package-lock.json
+
+accounts.json
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Build output
+*.exe
+*.bat
+dist/
+build/
