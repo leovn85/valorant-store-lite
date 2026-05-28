@@ -1,13 +1,14 @@
 const express = require('express');
 const fs = require('fs');
+const path = require('path');
 const app = express();
 
+app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 app.use(express.urlencoded({ extended: true }));
-// Required to serve static files like local images (icons)
-app.use(express.static('public')); 
+app.use(express.static(path.join(__dirname, 'public'))); 
 
-const ACCOUNTS_FILE = './accounts.json';
+const ACCOUNTS_FILE = path.join(process.cwd(), 'accounts.json');
 
 // Use a Map for true O(1) lookups
 const assetCache = new Map();
